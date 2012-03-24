@@ -1,8 +1,11 @@
 package com.sweyla.oldscoola
 
-import java.awt.Rectangle;
+import java.awt.Rectangle
+import java.awt.image.BufferedImage
+import java.io.IOException
+import javax.imageio.ImageIO
 
-class Sprite(val width:Int, val height:Int, val pixmap:Array[Int]) {
+class Sprite(val width:Int, val height:Int, var _pixmap:Array[Int]) {
   var cx = 0
   var cy = 0
   
@@ -11,9 +14,17 @@ class Sprite(val width:Int, val height:Int, val pixmap:Array[Int]) {
   val RIGHT = 2
   val UP = 3
   val MIRROR_X = 4
-  val MIRROR_Y = 5 
+  val MIRROR_Y = 5
+  //var _pixmap:Array[Int]
   
   def this(w:Int, h:Int) = this(w, h, new Array[Int](w*h))
+  
+  def pixmap = _pixmap
+  def pixmap_=(p:Array[Int]):Array[Int] = {
+    assert(p.length == width * height)
+    _pixmap = p
+    _pixmap
+  }
   
   def fill(color:Int, x:Int, y:Int, w:Int, h:Int):Unit = {
     for (i <- x.until(x+w)) {
@@ -121,5 +132,23 @@ class Sprite(val width:Int, val height:Int, val pixmap:Array[Int]) {
     if (pixelInside(x, y)) {
 	  pixmap((x-cx) + (y-cy)*width) = color
 	}
+  }
+}
+
+// Some static functions
+object Sprite {
+  def load(filename:String):Sprite = load(filename, 0xffff40ff)
+  def load(filename:String, maskcolor:Int):Sprite = {
+	var img:BufferedImage = null
+	try {
+	  img = ImageIO.read(getClass.getResource(filename))
+	} catch {
+	  case e:IOException => e.printStackTrace(); return null
+	}
+	
+	var sprite = new Sprite(img.getWidth, img.getHeight)
+	img.getRGB(0, 0, img.getWidth(), img.getHeight(), sprite.pixmap, 0, img.getWidth());
+	sprite.pixmap = sprite.pixmap.map((c) => if (c == maskcolor) 0 else c)
+	sprite
   }
 }
