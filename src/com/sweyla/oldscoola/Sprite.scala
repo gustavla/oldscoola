@@ -5,20 +5,25 @@ import java.awt.image.BufferedImage
 import java.io.IOException
 import javax.imageio.ImageIO
 
-class Sprite(val width:Int, val height:Int, var _pixmap:Array[Int]) {
+class Sprite(w:Int, h:Int, var _pixmap:Array[Int]) {
+  private var _width = w
+  private var _height = h
   var cx = 0
   var cy = 0
   
-  val LEFT = 0
-  val DOWN = 1
-  val RIGHT = 2
-  val UP = 3
-  val MIRROR_X = 4
-  val MIRROR_Y = 5
-  //var _pixmap:Array[Int]
   
+  def this() = this(0, 0, Array())
   def this(w:Int, h:Int) = this(w, h, new Array[Int](w*h))
   
+  /**
+   * Access functions for the private width/height
+   */
+  def width = _width
+  def height = _height
+  
+  /** 
+   * Access functions for pixmap
+   */
   def pixmap = _pixmap
   def pixmap_=(p:Array[Int]):Array[Int] = {
     assert(p.length == width * height)
@@ -26,6 +31,9 @@ class Sprite(val width:Int, val height:Int, var _pixmap:Array[Int]) {
     _pixmap
   }
   
+  /**
+   * Fill a rectangle with a certain color (does not use over)
+   */
   def fill(color:Int, x:Int, y:Int, w:Int, h:Int):Unit = {
     for (i <- x.until(x+w)) {
       for (j <- y.until(y+h)) {
@@ -35,21 +43,56 @@ class Sprite(val width:Int, val height:Int, var _pixmap:Array[Int]) {
   }
   
   def clear() = fill(0)
-  
   def fill(color:Int):Unit = fill(color, 0, 0, width, height)
   
+  /**
+   * Check if pixel at position (x,y) is inside sprite
+   */
   def pixelInside(x:Int, y:Int) = {
 	  (x-cx) >= 0 && (x-cx) < width && (y-cy) >= 0 && (y-cy) < height
   }
   
-  def blit(sprite:Sprite, x:Int, y:Int) : Unit = blit(sprite, x, y, 0)
+  /**
+   * Load from file with implicit syntax
+   */
+  /*def apply(filename:String, maskcolor:Int):Sprite = {
+    
+  }*/
   
-  def blit(sprite:Sprite, x:Int, y:Int, rot:Int) = {
-	var x0 = 0
-	var y0 = 0
-	var x1 = sprite.width
-	var y1 = sprite.height
+  /**
+   * Load from file
+   */
+  def load(filename:String, maskcolor:Int):Unit = {
+	var img:BufferedImage = null
+	try {
+	  img = ImageIO.read(getClass.getResource(filename))
+	} catch {
+	  case e:IOException => 
+	    e.printStackTrace()
+	    return
+	}
 	
+	//var sprite = new Sprite(img.getWidth, img.getHeight)
+	_width = img.getWidth
+	_height = img.getHeight
+	_pixmap = new Array[Int](_width * _height)
+	img.getRGB(0, 0, img.getWidth(), img.getHeight(), pixmap, 0, img.getWidth());
+	pixmap = pixmap.map((c) => if (c == maskcolor) 0 else c)
+  }
+  
+  /**
+   * Blits this sprite onto the another one.
+   * 
+   * This order (as opposed to a blitting function) enables 
+   * subclasses that overrides overrides and extends this
+   * class.
+   * 
+   * sprite 	sprite to render to
+   * x, y		rendering position in destination sprite
+   * [xy][01]	rectangle of source sprite (this) that should be rendered
+   * rot		rotation
+   */
+  def renderOnto(sprite:Sprite, x:Int, y:Int, x0:Int, y0:Int, x1:Int, y1:Int, rot:Int): Unit = {
 	var xx = 0
 	var yy = 0
 	for (i <- x0.until(x1)) {
@@ -65,22 +108,27 @@ class Sprite(val width:Int, val height:Int, var _pixmap:Array[Int]) {
 			yy = y1-1-(yy-y0)
 		}
 		// Mirror
-		if (rot == MIRROR_X) {
+		if (rot == Sprite.MIRROR_X) {
 			xx = x1-1-(xx-x0)
-		} else if (rot == MIRROR_Y) {
+		} else if (rot == Sprite.MIRROR_Y) {
 			yy = y1-1-(yy-y0)
 		}
 		
 		var fx = x+i-x0
 		var fy = y+j-y0
 		
-		var color = sprite.getPixel(xx, yy)
+		var color = getPixel(xx, yy)
 
-		overPixel(fx, fy, color);
+		sprite.overPixel(fx, fy, color);
 	  }
 	}
   }
+  def renderOnto(sprite:Sprite, x:Int, y:Int): Unit = renderOnto(sprite, x, y, 0, 0, width, height, 0)
+  def renderOnto(sprite:Sprite, x:Int, y:Int, rot:Int): Unit = renderOnto(sprite, x, y, 0, 0, width, height, rot)
   
+  /**
+   * Implements the over operator for color compositing
+   */
   def overPixel(x:Int, y:Int, color:Int) = {
     var draw = false
 	if (((color>>24)&0xFF) != 0 && pixelInside(x, y)) {
@@ -122,12 +170,19 @@ class Sprite(val width:Int, val height:Int, var _pixmap:Array[Int]) {
 	  }
 	}
   }
-	
+
+  /**
+   * Retrieve a pixel from a position.
+   */
   def getPixel(x:Int, y:Int):Int = getPixel(x, y, 0, 0)
   def getPixel(x:Int, y:Int, ox:Int, oy:Int) = {
 	pixmap((ox+x-cx) + (oy+y-cy)*width)
   }
   
+  /**
+   * Sets a pixel to a color value. Ignores it if it's outside
+   * the valid range.
+   */
   def setPixel(x:Int, y:Int, color:Int):Unit = {
     if (pixelInside(x, y)) {
 	  pixmap((x-cx) + (y-cy)*width) = color
@@ -136,19 +191,22 @@ class Sprite(val width:Int, val height:Int, var _pixmap:Array[Int]) {
 }
 
 // Some static functions
+/*
+ */
 object Sprite {
-  def load(filename:String):Sprite = load(filename, 0xffff40ff)
+  val DEFAULT_MASKCOLOR = 0xffff40ff
+  // Move to some nice enumerate?
+  val LEFT = 0
+  val DOWN = 1
+  val RIGHT = 2
+  val UP = 3
+  val MIRROR_X = 4
+  val MIRROR_Y = 5
+  
+  def load(filename:String):Sprite = load(filename, Sprite.DEFAULT_MASKCOLOR)
   def load(filename:String, maskcolor:Int):Sprite = {
-	var img:BufferedImage = null
-	try {
-	  img = ImageIO.read(getClass.getResource(filename))
-	} catch {
-	  case e:IOException => e.printStackTrace(); return null
-	}
-	
-	var sprite = new Sprite(img.getWidth, img.getHeight)
-	img.getRGB(0, 0, img.getWidth(), img.getHeight(), sprite.pixmap, 0, img.getWidth());
-	sprite.pixmap = sprite.pixmap.map((c) => if (c == maskcolor) 0 else c)
+	var sprite = new Sprite
+	sprite.load(filename, maskcolor)
 	sprite
   }
 }

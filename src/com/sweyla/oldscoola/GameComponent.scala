@@ -22,7 +22,7 @@ import java.awt.DisplayMode
 
 trait GameEngine {
   var alive = true
-  def tick(keys:Array[Boolean], has_focus:Boolean) : Unit
+  def tick(ctx:GameContext) : Unit
   def render(canvas:Sprite, has_focus:Boolean) : Unit
 }
 
@@ -43,12 +43,14 @@ class GameComponent(
   var canvas = new Sprite(WIDTH, HEIGHT)
   var pixmap = dbi.getData()
   val inputHandler = new InputHandler
-  addKeyListener(inputHandler)
+  
   var panel = new JPanel(new BorderLayout())
   var frame = new JFrame("Lo-Res Game!")
+  addKeyListener(inputHandler)
   val device = GraphicsEnvironment.getLocalGraphicsEnvironment.getDefaultScreenDevice
   var oldDispMode:DisplayMode = null 
   var fullscreen = false
+  var context = new GameContext
   
   def launch: Unit = {  
 	panel.add(this, BorderLayout.CENTER)
@@ -178,14 +180,13 @@ class GameComponent(
   }
   
   def tick:Boolean = {
-    engine.tick(inputHandler.keys, hasFocus)
+    context.keys = inputHandler.keys
+    context.inputText = inputHandler.popText
+    context.hasFocus = hasFocus
     
-    // This is temporary, the Engine should be able to have a
-    // signal back to the component, so these things can be done
-    if (inputHandler.keys(KeyEvent.VK_F)) {
-      inputHandler.keys(KeyEvent.VK_F) = false
-      toggleFullscreen
-    }
+    engine.tick(context)
+    
+    setFullscreen(context.fullscreen)
     
     // This doesn't work yet, the frame needs to be resized too
     /*

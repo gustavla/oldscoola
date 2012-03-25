@@ -5,21 +5,21 @@ import java.awt.event.KeyEvent
 
 // Example of an engine
 class Engine extends GameEngine {
-  var alphabet = Sprite.load("/sprites/alphabet.png")
+  var alphabet = SpriteFont.load("/sprites/alphabet.png", 10, 
+      "ABCDEFGHIJKLMNOPQRSTUVWXYZ.,!?0123456789-+(@#$%[ ")
   var x = 0
   
-  override def tick(keys:Array[Boolean], has_focus:Boolean) = {
-    if (keys(KeyEvent.VK_LEFT)) {
+  override def tick(ctx:GameContext) = {
+    if (ctx.keys(KeyEvent.VK_LEFT)) {
       x -= 1
     }
-    if (keys(KeyEvent.VK_RIGHT)) {
+    if (ctx.keys(KeyEvent.VK_RIGHT)) {
       x += 1
     }
-    
-    
+    /*
     if (keys(KeyEvent.VK_Q)) {
       alive = false
-    }
+    }*/
   }
   
   override def render(canvas:Sprite, has_focus:Boolean) = {
@@ -30,7 +30,8 @@ class Engine extends GameEngine {
     }
     
     canvas.fill(0xFF0000FF, 10+x, 10, 50, 50)
-    canvas.blit(alphabet, 0, 0)
+    //alphabet.renderTexOnto(canvas, 0, 0, 3)
+    alphabet.renderTextOnto(canvas, 5, 5, "HELLO")
   }
 }
 
